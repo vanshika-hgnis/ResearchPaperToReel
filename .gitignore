@@ -1,3 +1,5 @@
 .env
 
 /env
+__pycache__/
+partial_movie_files/
