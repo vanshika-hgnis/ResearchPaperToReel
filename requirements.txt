@@ -1,3 +1,7 @@
-manim
-arxiv
-python-dotenv
+manim==0.18.1
+PyMuPDF==1.24.9
+python-dotenv==1.0.1
+requests==2.32.3
+# Optional (enable later if you want voiceover)
+# edge-tts==6.1.12
+# pydub==0.25.1
