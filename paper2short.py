@@ -84,7 +84,12 @@ def summarize_to_script(text: str, provider: str, model: str) -> Dict:
     return cheap_local_fallback(text)
 
 
-def allocate_duration(script: Dict, max_secs: int = 15) -> List[Dict]:
+# -----------------------------
+# Timing planner (fit to target seconds)
+# -----------------------------
+
+
+def allocate_durations(script: Dict, max_secs: int = 15) -> List[Dict]:
     hook = script.get("hook", "")
     bullets = script.get("bullets", [])
     closing = script.get("closing", "")
@@ -176,3 +181,61 @@ class ReelScene(Scene):
 
             last = grp
 """
+
+
+def write_manim_scene(segments: List[Dict], out_path: str = "reel/reel_scene.py"):
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(
+            SCENE_TEMPLATE.replace(
+                "{segments_json}", json.dumps(segments, ensure_ascii=False)
+            )
+        )
+    print(f"[ok] Wrote Manim scene to {out_path}")
+
+
+# -----------------------------
+# CLI
+# -----------------------------
+
+
+def main():
+    ap = argparse.ArgumentParser(description="PDF → LLM → Manim short")
+    ap.add_argument("--pdf", required=True, help="Path to PDF/research paper")
+    ap.add_argument(
+        "--provider",
+        default="mistral",
+        choices=["mistral", "openai", "none"],
+        help="LLM provider",
+    )
+    ap.add_argument("--model", default="mistral-small-latest", help="Model name")
+    ap.add_argument(
+        "--max-secs", type=int, default=15, help="Target duration in seconds"
+    )
+    ap.add_argument("--lang", default="en", help="Language hint (en/hi/etc)")
+    args = ap.parse_args()
+
+    text = extract_text(args.pdf)
+    print(f"[info] Extracted {len(text)} chars from {args.pdf}")
+
+    provider = args.provider if args.provider != "none" else ""
+    script = summarize_to_script(text, provider, args.model)
+
+    # Language tweak: prepend a short Hindi/English cue if needed
+    if args.lang.lower().startswith("hi"):
+        script["hook"] = "जल्दी समझें: " + script.get("hook", "")
+        script["closing"] = (script.get("closing", "") + " और जानने के लिए पेपर देखें")[:80]
+
+    segments = allocate_durations(script, max_secs=args.max_secs)
+
+    with open("segments.json", "w", encoding="utf-8") as f:
+        json.dump(segments, f, ensure_ascii=False, indent=2)
+    print("[ok] Saved segments.json")
+
+    write_manim_scene(segments, out_path="reel_scene.py")
+
+    print("\nNext: render with Manim →")
+    print(" manim -pqh reel_scene.py ReelScene\n")
+
+
+if __name__ == "__main__":
+    main()
